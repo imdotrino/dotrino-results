@@ -75,11 +75,11 @@ certbot). CD por [cc-deploy-listener]: `git pull` + `pm2 restart`.
 ```bash
 RESULTS_DOMAIN=results.tudominio RESULTS_ADMIN_PUBKEYS=<thumbprint> docker compose up -d
 ```
-Caddy termina TLS automático. Imagen multi-arch en `ghcr.io/dotrino/dotrino-results`.
+Caddy termina TLS automático. Imagen multi-arch en `ghcr.io/imdotrino/dotrino-results`.
 
 ## Config (env)
 
 Ver `server/.env.example`. Lo más usado: `RESULTS_ADMIN_PUBKEYS` (allowlist de
 admins), `RESULTS_PROVIDERS` (cadena), `RESULTS_POLL_MS`, `RESULTS_FROM`/`RESULTS_TO`.
 
-[cc-deploy-listener]: https://github.com/imdotrino/cc-deploy-listener
+[cc-deploy-listener]: https://github.com/imdotrino/dotrino-deploy-listener

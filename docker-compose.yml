@@ -2,7 +2,7 @@
 #   RESULTS_DOMAIN=results.tudominio RESULTS_ADMIN_PUBKEYS=<thumbprint> docker compose up -d
 services:
   results:
-    image: ghcr.io/dotrino/dotrino-results:latest
+    image: ghcr.io/imdotrino/dotrino-results:latest
     # build: ./server   # descomentá para construir local en vez de tirar de GHCR
     restart: unless-stopped
     environment:
