@@ -1,0 +1,9 @@
+node_modules/
+# Estado runtime: clave de servicio (secreta) + overrides manuales.
+server/data/
+*.log
+.env
+node_modules
+dist
+build
+.DS_Store

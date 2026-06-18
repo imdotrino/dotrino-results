@@ -1,0 +1,34 @@
+# Autohospedaje turnkey de results.dotrino.com (relay + TLS automático).
+#   RESULTS_DOMAIN=results.tudominio RESULTS_ADMIN_PUBKEYS=<thumbprint> docker compose up -d
+services:
+  results:
+    image: ghcr.io/dotrino/dotrino-results:latest
+    # build: ./server   # descomentá para construir local en vez de tirar de GHCR
+    restart: unless-stopped
+    environment:
+      PORT: "8092"
+      RESULTS_COMPETITION: "fifa.world.2026"
+      RESULTS_FROM: "20260611"
+      RESULTS_TO: "20260719"
+      RESULTS_PROVIDERS: "espn,fifa"
+      RESULTS_POLL_MS: "30000"
+      RESULTS_ADMIN_PUBKEYS: "${RESULTS_ADMIN_PUBKEYS:-}"
+    volumes:
+      - results-data:/app/data   # clave de servicio + overrides manuales
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on: [results]
+    ports: ["80:80", "443:443"]
+    environment:
+      RESULTS_DOMAIN: "${RESULTS_DOMAIN:?definí RESULTS_DOMAIN}"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  results-data:
+  caddy-data:
+  caddy-config:

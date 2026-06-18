@@ -1,0 +1,5 @@
+# Autohospedaje turnkey (Caddy termina TLS automático por Let's Encrypt).
+# Definí RESULTS_DOMAIN (p.ej. results.tudominio) al levantar docker-compose.
+{$RESULTS_DOMAIN} {
+	reverse_proxy results:8092
+}
