@@ -181,7 +181,15 @@ async function main() {
     await refresh();
     setInterval(refresh, POLL_MS).unref();
     setInterval(() => rl.prune(Date.now()), PRUNE_MS).unref();
-    server.listen(PORT, () => console.log(`[results] results.dotrino.com escuchando en :${PORT}`));
+    server.listen(PORT, () => console.log(`[results] results.dotrino.com listening on :${PORT}`));
+    startUpdateWatch();
+}
+
+// §15: este servicio no usa pilares, así que lo que se le queda atrás es el checkout.
+function startUpdateWatch() {
+    import('@dotrino/update/checkout')
+        .then(({ watchCheckout }) => watchCheckout({ dir: __dirname, repo: 'imdotrino/dotrino-results', name: 'results' }))
+        .catch((e) => console.error('[update] could not start the watch:', e.code || e.message));
 }
 
 main().catch(err => { console.error('[results] fatal', err); process.exit(1); });

@@ -1,7 +1,7 @@
 {
   "name": "dotrino-results-server",
   "version": "0.1.0",
-  "description": "results.dotrino.com \u2014 relay de resultados oficiales en vivo (ESPN + manual firmado), feed firmado para las apps del ecosistema Dotrino",
+  "description": "results.dotrino.com — relay de resultados oficiales en vivo (ESPN + manual firmado), feed firmado para las apps del ecosistema Dotrino",
   "private": true,
   "type": "commonjs",
   "main": "server.js",
@@ -16,7 +16,10 @@
   "author": "seyacat",
   "license": "MIT",
   "devDependencies": {
-    "typescript": "5.9.3",
-    "@types/node": "^22.0.0"
+    "@types/node": "^22.0.0",
+    "typescript": "5.9.3"
+  },
+  "dependencies": {
+    "@dotrino/update": "0.7.0"
   }
 }
