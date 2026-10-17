@@ -49,7 +49,7 @@ async function refresh() {
         snapshot = { updatedAt: Date.now(), providerResults, matches };
         const summary = Object.entries(providerResults)
             .map(([id, r]) => r.ok ? `${id}:${r.count}` : `${id}:ERR(${r.error})`).join(' ');
-        console.log(`[results] refresh: ${matches.length} partidos fundidos | ${summary}`);
+        console.log(`[results] refresh: ${matches.length} matches merged | ${summary}`);
     } catch (e) {
         console.error('[results] refresh fatal:', e.message);
     }
@@ -128,16 +128,16 @@ function readBody(req) {
 
 async function handleAdmin(req, res, now) {
     const { data, signature } = (await readBody(req)) || {};
-    if (!data || typeof data !== 'object') return send(res, 400, { error: 'falta data' });
-    if (!verifyEnvelope(data, signature)) return send(res, 401, { error: 'firma inválida' });
-    if (!isAdmin(data.publickey)) return send(res, 403, { error: 'no autorizado (pubkey fuera de la allowlist)' });
+    if (!data || typeof data !== 'object') return send(res, 400, { error: 'missing data' });
+    if (!verifyEnvelope(data, signature)) return send(res, 401, { error: 'invalid signature' });
+    if (!isAdmin(data.publickey)) return send(res, 403, { error: 'unauthorized (pubkey not in the allowlist)' });
     if (typeof data.issuedAt !== 'number' || Math.abs(now - data.issuedAt) > CLOCK_SKEW_MS) {
-        return send(res, 401, { error: 'sobre vencido o reloj fuera de rango' });
+        return send(res, 401, { error: 'envelope expired or clock out of range' });
     }
-    if (data.competition && data.competition !== COMPETITION) return send(res, 400, { error: 'competición no coincide' });
-    if (!Array.isArray(data.matches)) return send(res, 400, { error: 'matches debe ser un arreglo' });
+    if (data.competition && data.competition !== COMPETITION) return send(res, 400, { error: 'competition mismatch' });
+    if (!Array.isArray(data.matches)) return send(res, 400, { error: 'matches must be an array' });
     const changed = store.applyOverrides(data.matches, pubkeyId(data.publickey), now);
-    console.log(`[results] override admin ${pubkeyId(data.publickey).slice(0, 12)}…: ${changed} cambio(s)`);
+    console.log(`[results] override admin ${pubkeyId(data.publickey).slice(0, 12)}…: ${changed} change(s)`);
     return send(res, 200, { ok: true, changed, total: store.count() });
 }
 
@@ -158,13 +158,13 @@ const server = http.createServer(async (req, res) => {
 
         if (url.pathname === '/official' && req.method === 'GET') {
             const { allowed, retryAfter } = rl.take('read', rl.clientIp(req), now);
-            if (!allowed) return send(res, 429, { error: 'demasiadas solicitudes' }, { 'retry-after': String(retryAfter) });
+            if (!allowed) return send(res, 429, { error: 'too many requests' }, { 'retry-after': String(retryAfter) });
             return send(res, 200, buildFeed(url.searchParams.get('source')));
         }
 
         if (url.pathname === '/admin/result' && req.method === 'POST') {
             const { allowed, retryAfter } = rl.take('write', rl.clientIp(req), now);
-            if (!allowed) return send(res, 429, { error: 'demasiadas solicitudes' }, { 'retry-after': String(retryAfter) });
+            if (!allowed) return send(res, 429, { error: 'too many requests' }, { 'retry-after': String(retryAfter) });
             return await handleAdmin(req, res, now);
         }
 
@@ -177,7 +177,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 async function main() {
-    console.log(`[results] proveedores: ${providers.providerIds.join(' → ')} | admins: ${ADMINS.length}`);
+    console.log(`[results] providers: ${providers.providerIds.join(' → ')} | admins: ${ADMINS.length}`);
     await refresh();
     setInterval(refresh, POLL_MS).unref();
     setInterval(() => rl.prune(Date.now()), PRUNE_MS).unref();

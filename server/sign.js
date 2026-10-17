@@ -19,7 +19,7 @@ const KEY_FILE = process.env.RESULTS_KEY_FILE || path.join(__dirname, 'data', 'r
 function loadOrCreateKey() {
     const envJwk = process.env.RESULTS_PRIVATE_JWK;
     if (envJwk) {
-        try { return JSON.parse(envJwk); } catch (_) { console.error('[results] RESULTS_PRIVATE_JWK inválida, ignorada'); }
+        try { return JSON.parse(envJwk); } catch (_) { console.error('[results] invalid RESULTS_PRIVATE_JWK, ignored'); }
     }
     try { return JSON.parse(fs.readFileSync(KEY_FILE, 'utf8')); } catch (_) { /* generar */ }
     const { privateKey } = crypto.generateKeyPairSync('ec', { namedCurve: 'P-256' });
@@ -27,9 +27,9 @@ function loadOrCreateKey() {
     try {
         fs.mkdirSync(path.dirname(KEY_FILE), { recursive: true });
         fs.writeFileSync(KEY_FILE, JSON.stringify(jwk), { mode: 0o600 });
-        console.log('[results] clave de servicio generada y persistida en', KEY_FILE);
+        console.log('[results] service key generated and saved to', KEY_FILE);
     } catch (e) {
-        console.error('[results] no pude persistir la clave de servicio:', e.message);
+        console.error('[results] could not save the service key:', e.message);
     }
     return jwk;
 }
