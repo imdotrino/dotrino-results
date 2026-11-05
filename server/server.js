@@ -20,6 +20,9 @@ const providers = require('./providers/index.js');
 const store = require('./store.js');
 const rl = require('./rateLimiter.js');
 
+/** @typedef {import('./types').Match} Match */
+/** @typedef {import('./types').ProviderResults} ProviderResults */
+
 const PORT = Number(process.env.PORT || 8092);
 const COMPETITION = process.env.RESULTS_COMPETITION || 'fifa.world.2026';
 const FROM = process.env.RESULTS_FROM || '20260611';
@@ -40,6 +43,7 @@ const ADMINS = (process.env.RESULTS_ADMIN_PUBKEYS || '')
 const ADMIN_IDS = ADMINS.map(a => (/^[0-9a-f]{64}$/i.test(a) ? a.toLowerCase() : pubkeyId(a)));
 
 // Snapshot en memoria del último refresh de proveedores.
+/** @type {{ updatedAt: number, providerResults: ProviderResults, matches: Match[] }} */
 let snapshot = { updatedAt: 0, providerResults: {}, matches: [] };
 
 async function refresh() {
@@ -51,10 +55,14 @@ async function refresh() {
             .map(([id, r]) => r.ok ? `${id}:${r.count}` : `${id}:ERR(${r.error})`).join(' ');
         console.log(`[results] refresh: ${matches.length} matches merged | ${summary}`);
     } catch (e) {
-        console.error('[results] refresh fatal:', e.message);
+        console.error('[results] refresh fatal:', e instanceof Error ? e.message : e);
     }
 }
 
+/**
+ * @param {string} publickeyJwkString
+ * @returns {boolean}
+ */
 function isAdmin(publickeyJwkString) {
     if (!ADMINS.length) return false;
     const id = pubkeyId(publickeyJwkString);
@@ -63,12 +71,18 @@ function isAdmin(publickeyJwkString) {
 
 // Arma el feed firmado. `source`: 'espn'|'fifa' (vista de un proveedor),
 // 'manual' (solo overrides), o por defecto 'merged' (proveedores + overrides).
+/**
+ * @param {string|null} source
+ * @returns {{ data: object, signature: string }}
+ */
 function buildFeed(source) {
+    /** @type {Record<string, { ok: boolean, count: number, fetchedAt: number, error: string|null }>} */
     const providerHealth = {};
     for (const [id, r] of Object.entries(snapshot.providerResults)) {
         providerHealth[id] = { ok: r.ok, count: r.count || 0, fetchedAt: r.fetchedAt, error: r.error || null };
     }
     let matches = snapshot.matches;
+    /** @type {Match[]} */
     let overrides = store.overrides();
     if (source && source !== 'merged') {
         if (source === 'manual') {
@@ -97,6 +111,13 @@ function buildFeed(source) {
 
 // --- helpers HTTP (estilo geo) ---
 
+/**
+ * @param {import('node:http').ServerResponse} res
+ * @param {number} status
+ * @param {unknown} obj
+ * @param {Record<string, string>} [extraHeaders]
+ * @returns {void}
+ */
 function send(res, status, obj, extraHeaders) {
     const body = JSON.stringify(obj);
     res.writeHead(status, {
@@ -110,10 +131,16 @@ function send(res, status, obj, extraHeaders) {
     res.end(body);
 }
 
+/**
+ * @param {import('node:http').IncomingMessage} req
+ * @returns {Promise<unknown>} el JSON del cuerpo, o {} si viene vacío
+ */
 function readBody(req) {
     return new Promise((resolve, reject) => {
-        let size = 0; const chunks = [];
-        req.on('data', c => {
+        let size = 0;
+        /** @type {Buffer[]} */
+        const chunks = [];
+        req.on('data', (/** @type {Buffer} */ c) => {
             size += c.length;
             if (size > MAX_BODY) { reject(new Error('body too large')); req.destroy(); return; }
             chunks.push(c);
@@ -126,10 +153,18 @@ function readBody(req) {
     });
 }
 
+/**
+ * @param {import('node:http').IncomingMessage} req
+ * @param {import('node:http').ServerResponse} res
+ * @param {number} now ms epoch
+ * @returns {Promise<void>}
+ */
 async function handleAdmin(req, res, now) {
-    const { data, signature } = (await readBody(req)) || {};
-    if (!data || typeof data !== 'object') return send(res, 400, { error: 'missing data' });
-    if (!verifyEnvelope(data, signature)) return send(res, 401, { error: 'invalid signature' });
+    const { data: raw, signature } = /** @type {{ data?: unknown, signature?: unknown }} */ ((await readBody(req)) || {});
+    if (!raw || typeof raw !== 'object') return send(res, 400, { error: 'missing data' });
+    if (!verifyEnvelope(raw, signature)) return send(res, 401, { error: 'invalid signature' });
+    // verifyEnvelope ya comprobó que `publickey` es un string; lo demás se valida aquí abajo.
+    const data = /** @type {{ publickey: string, issuedAt?: unknown, competition?: unknown, matches?: unknown }} */ (raw);
     if (!isAdmin(data.publickey)) return send(res, 403, { error: 'unauthorized (pubkey not in the allowlist)' });
     if (typeof data.issuedAt !== 'number' || Math.abs(now - data.issuedAt) > CLOCK_SKEW_MS) {
         return send(res, 401, { error: 'envelope expired or clock out of range' });
@@ -144,10 +179,11 @@ async function handleAdmin(req, res, now) {
 const server = http.createServer(async (req, res) => {
     const now = Date.now();
     try {
-        const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+        const url = new URL(/** @type {string} */ (req.url), `http://${req.headers.host || 'localhost'}`);
         if (req.method === 'OPTIONS') return send(res, 204, {});
 
         if (url.pathname === '/health') {
+            /** @type {Record<string, number|string>} */
             const ph = {};
             for (const [id, r] of Object.entries(snapshot.providerResults)) ph[id] = r.ok ? r.count : `ERR:${r.error}`;
             return send(res, 200, { ok: true, updatedAt: snapshot.updatedAt, providers: ph, overrides: store.count() });
@@ -170,7 +206,7 @@ const server = http.createServer(async (req, res) => {
 
         return send(res, 404, { error: 'not found' });
     } catch (err) {
-        const msg = (err && err.message) || 'error';
+        const msg = (err instanceof Error && err.message) || 'error';
         const status = (msg === 'body too large' || msg === 'invalid json') ? 400 : 500;
         return send(res, status, { error: msg });
     }

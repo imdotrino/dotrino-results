@@ -14,11 +14,19 @@
 
 const KNOCKOUT_START = Date.parse(process.env.RESULTS_KNOCKOUT_START || '2026-06-28T12:00:00Z');
 
+/**
+ * @param {string|null|undefined} kickoffIso
+ * @returns {'ko'|'grp'}
+ */
 function phaseOf(kickoffIso) {
     const t = Date.parse(kickoffIso || '') || 0;
     return t >= KNOCKOUT_START ? 'ko' : 'grp';
 }
 
+/**
+ * @param {{ home?: string, away?: string, kickoff?: string|null }} m
+ * @returns {string} p. ej. `grp:ARG-MEX`
+ */
 function matchKey(m) {
     const pair = [String(m.home || '').toUpperCase(), String(m.away || '').toUpperCase()]
         .sort()

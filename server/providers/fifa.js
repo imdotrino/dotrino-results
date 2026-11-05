@@ -13,13 +13,28 @@ const BASE = process.env.RESULTS_FIFA_BASE || 'https://api.fifa.com/api/v3/calen
 const ID_COMPETITION = process.env.RESULTS_FIFA_COMPETITION || '17';
 const ID_SEASON = process.env.RESULTS_FIFA_SEASON || '285023'; // FIFA World Cup 2026
 
+/** @typedef {import('../types').Match} Match */
+/** @typedef {import('../types').FetchOpts} FetchOpts */
+
+/**
+ * @param {unknown} x
+ * @returns {number|null}
+ */
 function num(x) { const n = Number(x); return Number.isFinite(n) ? n : null; }
 
+/**
+ * @param {import('../types').FifaCalendar} json
+ * @returns {Match[]}
+ */
 function normalize(json) {
+    /** @type {Match[]} */
     const out = [];
     const results = (json && (json.Results || json.results)) || [];
     for (const m of results) {
-        const H = m.Home || {}, A = m.Away || {};
+        /** @type {import('../types').FifaTeam} */
+        const H = m.Home || {};
+        /** @type {import('../types').FifaTeam} */
+        const A = m.Away || {};
         const hCode = String(H.Abbreviation || H.IdCountry || '').toUpperCase();
         const aCode = String(A.Abbreviation || A.IdCountry || '').toUpperCase();
         if (!hCode || !aCode) continue; // partidos con plantel sin definir (placeholders)
@@ -47,6 +62,10 @@ function normalize(json) {
     return out;
 }
 
+/**
+ * @param {FetchOpts} opts
+ * @returns {Promise<Match[]>}
+ */
 async function fetchMatches(opts) {
     const url = `${BASE}?idCompetition=${ID_COMPETITION}&idSeason=${ID_SEASON}&count=200&language=en`;
     const ctrl = new AbortController();
@@ -55,7 +74,7 @@ async function fetchMatches(opts) {
     try { res = await fetch(url, { signal: ctrl.signal, headers: { accept: 'application/json' } }); }
     finally { clearTimeout(t); }
     if (!res.ok) throw new Error('fifa http ' + res.status);
-    return normalize(await res.json());
+    return normalize(/** @type {import('../types').FifaCalendar} */ (await res.json()));
 }
 
 module.exports = { id: 'fifa', label: 'FIFA', fetchMatches, _normalize: normalize };

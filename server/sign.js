@@ -16,6 +16,7 @@ const { canonicalStringify } = require('./signature.js');
 
 const KEY_FILE = process.env.RESULTS_KEY_FILE || path.join(__dirname, 'data', 'relay-key.json');
 
+/** @returns {import('node:crypto').JsonWebKey} */
 function loadOrCreateKey() {
     const envJwk = process.env.RESULTS_PRIVATE_JWK;
     if (envJwk) {
@@ -29,7 +30,7 @@ function loadOrCreateKey() {
         fs.writeFileSync(KEY_FILE, JSON.stringify(jwk), { mode: 0o600 });
         console.log('[results] service key generated and saved to', KEY_FILE);
     } catch (e) {
-        console.error('[results] could not save the service key:', e.message);
+        console.error('[results] could not save the service key:', e instanceof Error ? e.message : e);
     }
     return jwk;
 }
@@ -39,7 +40,11 @@ const privateKeyObj = crypto.createPrivateKey({ key: privJwk, format: 'jwk' });
 const pubJwk = { kty: 'EC', crv: 'P-256', x: privJwk.x, y: privJwk.y };
 const pubJwkString = JSON.stringify(pubJwk);
 
-/** Firma `data` (que ya debe incluir data.publickey) → base64 raw r||s. */
+/**
+ * Firma `data` (que ya debe incluir data.publickey) → base64 raw r||s.
+ * @param {unknown} data
+ * @returns {string}
+ */
 function signData(data) {
     const bytes = Buffer.from(canonicalStringify(data), 'utf8');
     return crypto.sign('sha256', bytes, { key: privateKeyObj, dsaEncoding: 'ieee-p1363' }).toString('base64');

@@ -14,8 +14,15 @@ const CLASSES = {
     write: { capacity: WRITE_PER_MIN, refillPerSec: WRITE_PER_MIN / 60 },
 };
 
+/** @typedef {keyof typeof CLASSES} RateClass */
+
+/** @type {Map<string, { tokens: number, last: number }>} */
 const buckets = new Map();
 
+/**
+ * @param {import('node:http').IncomingMessage} req
+ * @returns {string}
+ */
 function clientIp(req) {
     if (TRUST_PROXY) {
         const xff = req.headers['x-forwarded-for'];
@@ -27,6 +34,12 @@ function clientIp(req) {
     return (req.socket && req.socket.remoteAddress) || 'unknown';
 }
 
+/**
+ * @param {RateClass} cls
+ * @param {string} ip
+ * @param {number} now ms epoch
+ * @returns {{ allowed: boolean, retryAfter: number }} retryAfter en segundos
+ */
 function take(cls, ip, now) {
     if (DISABLED) return { allowed: true, retryAfter: 0 };
     const conf = CLASSES[cls];
@@ -41,9 +54,14 @@ function take(cls, ip, now) {
     return { allowed: false, retryAfter: Math.ceil((1 - b.tokens) / conf.refillPerSec) };
 }
 
+/**
+ * @param {number} now ms epoch
+ * @param {number} [idleMs]
+ * @returns {void}
+ */
 function prune(now, idleMs = 10 * 60 * 1000) {
     for (const [key, b] of buckets) {
-        const cls = key.slice(0, key.indexOf(':'));
+        const cls = /** @type {RateClass} */ (key.slice(0, key.indexOf(':')));
         const conf = CLASSES[cls];
         if (conf && b.tokens >= conf.capacity && (now - b.last) > idleMs) buckets.delete(key);
     }

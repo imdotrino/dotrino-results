@@ -11,8 +11,12 @@ const path = require('node:path');
 const { matchKey } = require('./keys.js');
 const { winnerByScore } = require('./winner.js');
 
+/** @typedef {import('./types').Override} Override */
+/** @typedef {import('./types').OverrideInput} OverrideInput */
+
 const FILE = process.env.RESULTS_STORE_FILE || path.join(__dirname, 'data', 'overrides.json');
 
+/** @returns {Record<string, Override>} */
 function loadFile() {
     try { return JSON.parse(fs.readFileSync(FILE, 'utf8')) || {}; }
     catch (_) { return {}; }
@@ -23,15 +27,25 @@ function persist() {
     try {
         fs.mkdirSync(path.dirname(FILE), { recursive: true });
         fs.writeFileSync(FILE, JSON.stringify(cache));
-    } catch (e) { console.error('[results] persist overrides error:', e.message); }
+    } catch (e) { console.error('[results] persist overrides error:', e instanceof Error ? e.message : e); }
 }
 
+/**
+ * @param {unknown} x
+ * @returns {number|null}
+ */
 function numOrNull(x) {
     if (x === null || x === undefined || x === '') return null;
     const n = Number(x);
     return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * @param {OverrideInput} it
+ * @param {string} by pubkeyId del admin
+ * @param {number} now ms epoch
+ * @returns {Override}
+ */
 function normalizeOverride(it, by, now) {
     const hCode = String(it.home).toUpperCase();
     const aCode = String(it.away).toUpperCase();
@@ -56,6 +70,10 @@ function normalizeOverride(it, by, now) {
  * Aplica un lote de overrides del admin. Cada item:
  *   { home, away, kickoff?, homeGoals, awayGoals, homePens?, awayPens?, winner?, stage?, clear? }
  * Devuelve cuántos cambiaron.
+ * @param {OverrideInput[]} items
+ * @param {string} byPubkeyId
+ * @param {number} now ms epoch
+ * @returns {number}
  */
 function applyOverrides(items, byPubkeyId, now) {
     let changed = 0;
@@ -77,9 +95,13 @@ function applyOverrides(items, byPubkeyId, now) {
     return changed;
 }
 
-/** Lista de overrides manuales (el state of truth a aplicar sobre los proveedores). */
+/**
+ * Lista de overrides manuales (el state of truth a aplicar sobre los proveedores).
+ * @returns {Override[]}
+ */
 function overrides() { return Object.values(cache); }
 
+/** @returns {number} */
 function count() { return Object.keys(cache).length; }
 
 module.exports = { applyOverrides, overrides, count, _file: FILE };

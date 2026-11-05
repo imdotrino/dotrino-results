@@ -13,6 +13,10 @@
 
 const crypto = require('node:crypto');
 
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
 function canonicalStringify(value) {
     if (value === null || typeof value !== 'object') {
         return JSON.stringify(value);
@@ -20,13 +24,14 @@ function canonicalStringify(value) {
     if (Array.isArray(value)) {
         return '[' + value.map(canonicalStringify).join(',') + ']';
     }
-    const keys = Object.keys(value).sort();
-    return '{' + keys.map(k => JSON.stringify(k) + ':' + canonicalStringify(value[k])).join(',') + '}';
+    const obj = /** @type {Record<string, unknown>} */ (value);
+    const keys = Object.keys(obj).sort();
+    return '{' + keys.map(k => JSON.stringify(k) + ':' + canonicalStringify(obj[k])).join(',') + '}';
 }
 
 /**
- * @param {object} data         objeto firmado; debe incluir data.publickey (JWK string)
- * @param {string} signatureB64 firma base64 (raw r||s)
+ * @param {{ publickey?: unknown }} data objeto firmado; debe incluir data.publickey (JWK string)
+ * @param {unknown} signatureB64 firma base64 (raw r||s); se comprueba que sea string
  * @returns {boolean}
  */
 function verifyEnvelope(data, signatureB64) {
@@ -60,6 +65,8 @@ function verifyEnvelope(data, signatureB64) {
 /**
  * Identificador estable y corto de una identidad (SHA-256 hex del JWK pubkey
  * canónico). Se usa para la allowlist de admins (más corto que el JWK entero).
+ * @param {string} publickeyJwkString
+ * @returns {string} hex
  */
 function pubkeyId(publickeyJwkString) {
     try {
