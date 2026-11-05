@@ -7,6 +7,7 @@
 // autoritativo incl. penales), shootoutScore (penales). status.type.state =
 // 'pre'|'in'|'post', .completed = bool. Normaliza al shape app-agnóstico común.
 
+const { winnerByScore } = require('../winner.js');
 const BASE = process.env.RESULTS_ESPN_BASE
     || 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard';
 
@@ -46,11 +47,7 @@ function normalize(json) {
         if (finished) {
             if (home.winner === true) winner = hCode;
             else if (away.winner === true) winner = aCode;
-            else if (hG != null && aG != null) {
-                const hWin = (hP != null && aP != null && (hP || aP)) ? hP > aP : hG > aG;
-                const aWin = (hP != null && aP != null && (hP || aP)) ? aP > hP : aG > hG;
-                winner = hWin ? hCode : (aWin ? aCode : null);
-            }
+            else winner = winnerByScore({ home: hCode, away: aCode, homeGoals: hG, awayGoals: aG, homePens: hP, awayPens: aP });
         }
         out.push({
             home: hCode, away: aCode, kickoff: ev.date || null, stage: stageFromEspn(ev),

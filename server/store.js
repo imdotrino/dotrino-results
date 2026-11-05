@@ -9,6 +9,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { matchKey } = require('./keys.js');
+const { winnerByScore } = require('./winner.js');
 
 const FILE = process.env.RESULTS_STORE_FILE || path.join(__dirname, 'data', 'overrides.json');
 
@@ -41,11 +42,7 @@ function normalizeOverride(it, by, now) {
     let winner = (typeof it.winner === 'string' && it.winner) ? it.winner.toUpperCase() : null;
     // Un override manual representa un resultado CONOCIDO.
     const finished = winner != null || (hG != null && aG != null);
-    if (!winner && finished && hG != null && aG != null) {
-        const hWin = (hP != null && aP != null && (hP || aP)) ? hP > aP : hG > aG;
-        const aWin = (hP != null && aP != null && (hP || aP)) ? aP > hP : aG > hG;
-        winner = hWin ? hCode : (aWin ? aCode : null);
-    }
+    if (!winner && finished) winner = winnerByScore({ home: hCode, away: aCode, homeGoals: hG, awayGoals: aG, homePens: hP, awayPens: aP });
     return {
         home: hCode, away: aCode, kickoff: it.kickoff || null, stage: it.stage || null,
         status: finished ? 'final' : 'scheduled', started: finished, finished,
